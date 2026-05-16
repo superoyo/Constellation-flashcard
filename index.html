@@ -214,11 +214,28 @@ function loadSRS(){ try{srs=JSON.parse(localStorage.getItem(SRKEY))||{};}catch(e
 function saveSRS(){ try{localStorage.setItem(SRKEY,JSON.stringify(srs));}catch(e){} }
 function rec(cid){ return srs[cid]||(srs[cid]={box:1,seen:0,missed:0}); }
 function weight(cid){ return BOX_W[(rec(cid).box||1)-1]; }
+let undoStack=[];                  // snapshots so going back can cancel a grade
 function grade(cid,knew){
-  const r=rec(cid); r.seen++;
+  const r=rec(cid);
+  undoStack.push({cid,snap:{box:r.box,seen:r.seen,missed:r.missed}});
+  if(undoStack.length>120) undoStack.shift();
+  r.seen++;
   if(knew) r.box=Math.min(5,(r.box||1)+1);
   else { r.box=1; r.missed++; }
   saveSRS(); renderStats();
+}
+// Going back means the forward swipe was accidental — revert that card's
+// most recent grade instead of trusting it as "remembered".
+function undoLastGradeFor(cid){
+  for(let i=undoStack.length-1;i>=0;i--){
+    if(undoStack[i].cid===cid){
+      const r=rec(cid), s=undoStack[i].snap;
+      r.box=s.box; r.seen=s.seen; r.missed=s.missed;
+      undoStack.splice(i,1);
+      saveSRS(); renderStats();
+      return;
+    }
+  }
 }
 let pool=[], history=[], hpos=-1, revealed=false, visitGraded=false;
 const curCid=()=>history[hpos];
@@ -365,7 +382,13 @@ function nextCard(){
          if(history.length>300){history.shift();hpos--;} }
   render();
 }
-function prevCard(){ gradeCurrent(); if(hpos>0) hpos--; render(); }
+function prevCard(){
+  if(hpos<=0) return;
+  // Don't grade the card we're abandoning, and cancel the grade that the
+  // forward move applied to the card we're returning to.
+  undoLastGradeFor(history[hpos-1]);
+  hpos--; render();
+}
 
 function flipCard(){ if(mode!=="flash")return;
   $("card").classList.toggle("flipped");
