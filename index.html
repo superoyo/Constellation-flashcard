@@ -103,10 +103,19 @@
   .panel .reset{width:100%;margin-top:18px;border-color:#5a2740;color:#ff9bb0}
   .panel .reset:hover{background:#2a1020;border-color:var(--bad)}
   .empty{color:var(--dim);font-size:13px;padding:8px 0}
+  .lang-row{align-items:center;border-bottom:1px solid #1c2342}
+  .lang-row .opts{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--dim)}
+  .switch{position:relative;display:inline-block;width:42px;height:24px}
+  .switch input{opacity:0;width:0;height:0}
+  .sl{position:absolute;inset:0;background:#2a3360;border-radius:24px;transition:.2s;cursor:pointer}
+  .sl:before{content:"";position:absolute;height:18px;width:18px;left:3px;top:3px;
+    background:#fff;border-radius:50%;transition:.2s}
+  .switch input:checked + .sl{background:var(--accent)}
+  .switch input:checked + .sl:before{transform:translateX(18px)}
 </style>
 </head>
 <body>
-  <h1>✦ Sky Flash Cards</h1>
+  <h1 id="title">✦ Sky Flash Cards</h1>
   <div class="sub" id="sub">Match the star pattern to its name</div>
 
   <div class="bar">
@@ -125,10 +134,16 @@
   <button id="menuBtn" class="menu-btn" aria-label="Stats">☰</button>
   <div class="backdrop" id="backdrop"></div>
   <aside class="panel" id="panel">
-    <h2>Progress <button class="x" id="closePanel" aria-label="Close">✕</button></h2>
+    <h2><span id="panelTitle">Progress</span> <button class="x" id="closePanel" aria-label="Close">✕</button></h2>
+    <div class="row lang-row">
+      <span id="langLabel">Language</span>
+      <span class="opts"><span class="lang-en">EN</span>
+        <label class="switch"><input type="checkbox" id="langToggle"><span class="sl"></span></label>
+        <span class="lang-th">ไทย</span></span>
+    </div>
     <div id="pieWrap"></div>
     <div id="quizLine"></div>
-    <div class="sec">Needs practice</div>
+    <div class="sec" id="secNeeds">Needs practice</div>
     <div id="needsList"></div>
     <button class="reset" id="resetStats">Reset all stats</button>
   </aside>
@@ -187,6 +202,55 @@ function label(cid){ return isM(cid)
   : NAMES[cid]; }
 
 const $=id=>document.getElementById(id);
+
+/* ---- i18n (EN / TH) ---- */
+const I18N={
+ en:{title:"✦ Sky Flash Cards",subStars:"Match the star pattern to its name",
+  subMessier:"Match the deep-sky photo to its name",cStars:"✦ Constellations",
+  cMessier:"🌌 Messier",flash:"Flash Cards",quiz:"Quiz",famous:"Famous",all:"All",
+  shuffle:"⟳ Shuffle",prev:"← Prev",next:"Next →",progress:"Progress",
+  language:"Language",needs:"Needs practice",reset:"Reset all stats",
+  resetAsk:"Reset all spaced-repetition stats?",mastered:"Mastered",
+  masteredLc:"mastered",learning:"Learning",notSeen:"Not seen",reviews:"Reviews",
+  quizScore:"Quiz score (session)",noReviews:"No reviews yet — flip a few cards.",
+  pickName:"Pick the right name",whichM:"Which Messier object?",
+  loading:"Loading image…",noImg:"image unavailable",correct:"Correct!",
+  itWas:"It was ",credit:"Image: Wikipedia / Wikimedia Commons",
+  kbd:"<kbd>Space</kbd> next · <kbd>Backspace</kbd> prev · <kbd>1</kbd> reveal",
+  swipe:"Swipe <kbd>←</kbd> / <kbd>→</kbd> for next &amp; prev · tap or press <kbd>1</kbd> to reveal"},
+ th:{title:"✦ แฟลชการ์ดท้องฟ้า",subStars:"จับคู่รูปแบบดาวกับชื่อกลุ่มดาว",
+  subMessier:"จับคู่ภาพวัตถุท้องฟ้าลึกกับชื่อ",cStars:"✦ กลุ่มดาว",
+  cMessier:"🌌 เมสสิเยร์",flash:"แฟลชการ์ด",quiz:"ควิซ",famous:"ยอดนิยม",all:"ทั้งหมด",
+  shuffle:"⟳ สุ่มใหม่",prev:"← ก่อนหน้า",next:"ถัดไป →",progress:"ความคืบหน้า",
+  language:"ภาษา",needs:"ต้องฝึกเพิ่ม",reset:"ล้างสถิติทั้งหมด",
+  resetAsk:"ล้างสถิติ spaced-repetition ทั้งหมด?",mastered:"เชี่ยวชาญ",
+  masteredLc:"เชี่ยวชาญ",learning:"กำลังเรียน",notSeen:"ยังไม่เห็น",reviews:"ทบทวน",
+  quizScore:"คะแนนควิซ (รอบนี้)",noReviews:"ยังไม่มีการทบทวน — ลองพลิกการ์ดดูก่อน",
+  pickName:"เลือกชื่อที่ถูกต้อง",whichM:"นี่คือวัตถุเมสสิเยร์ใด?",
+  loading:"กำลังโหลดภาพ…",noImg:"ไม่มีภาพ",correct:"ถูกต้อง!",
+  itWas:"คำตอบคือ ",credit:"ภาพ: Wikipedia / Wikimedia Commons",
+  kbd:"<kbd>Space</kbd> ถัดไป · <kbd>Backspace</kbd> ก่อนหน้า · <kbd>1</kbd> เฉลย",
+  swipe:"ปัด <kbd>←</kbd> / <kbd>→</kbd> เพื่อถัดไป/ก่อนหน้า · แตะหรือกด <kbd>1</kbd> เพื่อดูเฉลย"}};
+let lang=localStorage.getItem("constLang")==="th"?"th":"en";
+const t=k=>I18N[lang][k];
+function applyLang(){
+  $("title").textContent=t("title");
+  $("cStars").textContent=t("cStars");
+  $("cMessier").textContent=t("cMessier");
+  $("mFlash").textContent=t("flash");
+  $("mQuiz").textContent=t("quiz");
+  $("shuffle").textContent=t("shuffle");
+  $("prev").textContent=t("prev");
+  $("next").textContent=t("next");
+  $("panelTitle").textContent=t("progress");
+  $("langLabel").textContent=t("language");
+  $("secNeeds").textContent=t("needs");
+  $("resetStats").textContent=t("reset");
+  $("langToggle").checked = lang==="th";
+  updateDiffLabels(); setKbdHint(); render();
+}
+function setLang(l){ lang=l; localStorage.setItem("constLang",l); applyLang(); }
+
 let segsById={}, rankById={}, mode="flash", diff="easy", cat="stars";
 let score={right:0,total:0}, answered=false;
 
@@ -308,22 +372,22 @@ function showCard(cid){
   const sky=$("sky"), img=$("photo");
   if(isM(cid)){
     sky.style.display="none"; img.style.display=""; img.removeAttribute("src");
-    const hint = mode==="quiz" ? "Which Messier object?" : "";
-    $("frontHint").textContent="Loading image…";
+    const hint = mode==="quiz" ? t("whichM") : "";
+    $("frontHint").textContent=t("loading");
     const tok=++imgToken;
     messierThumb(cid).then(src=>{
       if(tok!==imgToken) return;
       if(src){ img.src=src; img.style.display=""; sky.style.display="none"; }
       else { img.style.display="none"; sky.style.display="";
              sky.innerHTML='<text x="200" y="155" text-anchor="middle" '+
-               'fill="#8b93b8" font-size="15">image unavailable</text>'; }
+               'fill="#8b93b8" font-size="15">'+t("noImg")+'</text>'; }
       $("frontHint").textContent=hint;
     });
   } else {
     img.style.display="none"; img.removeAttribute("src");
     sky.style.display=""; ++imgToken;          // cancel any pending image load
     draw(cid);
-    $("frontHint").textContent = mode==="quiz" ? "Pick the right name" : "";
+    $("frontHint").textContent = mode==="quiz" ? t("pickName") : "";
   }
 }
 function render(){
@@ -338,7 +402,7 @@ function render(){
   showCard(cid);
   $("bName").textContent=label(cid);
   $("bAbbr").textContent="("+cid+")";
-  $("bCredit").textContent = isM(cid) ? "Image: Wikipedia / Wikimedia Commons" : "";
+  $("bCredit").textContent = isM(cid) ? t("credit") : "";
   $("msg").textContent=""; $("msg").className="msg";
   if(mode==="quiz"){
     $("choices").style.display="grid";
@@ -364,13 +428,13 @@ function answer(btn,chosen,cid){
   [...$("choices").children].forEach(b=>b.disabled=true);
   if(chosen===cid){
     score.right++; btn.classList.add("correct");
-    $("msg").textContent="Correct!"; $("msg").className="msg good";
+    $("msg").textContent=t("correct"); $("msg").className="msg good";
   }else{
     btn.classList.add("wrong");
     [...$("choices").children].forEach(b=>{
       if(b.textContent===label(cid))b.classList.add("correct");
     });
-    $("msg").textContent="It was "+label(cid); $("msg").className="msg bad";
+    $("msg").textContent=t("itWas")+label(cid); $("msg").className="msg bad";
   }
   grade(cid, chosen===cid); visitGraded=true;
   $("card").classList.add("flipped");
@@ -424,9 +488,8 @@ $("card").onclick=flipCard;
 })();
 
 const touch = ("ontouchstart" in window) || navigator.maxTouchPoints>0;
-$("kbdHint").innerHTML = touch
-  ? "Swipe <kbd>←</kbd> / <kbd>→</kbd> for next &amp; prev · tap or press <kbd>1</kbd> to reveal"
-  : "<kbd>Space</kbd> next · <kbd>Backspace</kbd> prev · <kbd>1</kbd> reveal";
+function setKbdHint(){ $("kbdHint").innerHTML = t(touch?"swipe":"kbd"); }
+$("langToggle").addEventListener("change",e=>setLang(e.target.checked?"th":"en"));
 
 $("next").onclick=nextCard;
 $("prev").onclick=prevCard;
@@ -444,14 +507,14 @@ $("dAll").onclick=()=>setDiff("all");
 
 function updateDiffLabels(){
   if(cat==="messier"){
-    $("dEasy").textContent="Famous ("+M_FAMOUS.length+")";
-    $("dAll").textContent="All 110";
-    $("sub").textContent="Match the deep-sky photo to its name";
+    $("dEasy").textContent=t("famous")+" ("+M_FAMOUS.length+")";
+    $("dAll").textContent=t("all")+" 110";
+    $("sub").textContent=t("subMessier");
   } else {
     const famous=Object.keys(segsById).filter(id=>["1","2"].includes(rankById[id])).length;
-    $("dEasy").textContent="Famous ("+famous+")";
-    $("dAll").textContent="All 88";
-    $("sub").textContent="Match the star pattern to its name";
+    $("dEasy").textContent=t("famous")+" ("+famous+")";
+    $("dAll").textContent=t("all")+" 88";
+    $("sub").textContent=t("subStars");
   }
 }
 function setCat(c){ gradeCurrent(); cat=c;
@@ -482,7 +545,7 @@ function pieChart(m,l,n){
     <circle cx="70" cy="70" r="52" fill="none" stroke="${PIE_COL.fresh}" stroke-width="16"/>
     ${arcs}
     <text x="70" y="66" text-anchor="middle" class="pieN">${pct}%</text>
-    <text x="70" y="86" text-anchor="middle" class="pieL">mastered</text></svg>`;
+    <text x="70" y="86" text-anchor="middle" class="pieL">${t("masteredLc")}</text></svg>`;
 }
 function renderStats(){
   let reviews=0, mastered=0, learning=0, fresh=0;
@@ -495,19 +558,19 @@ function renderStats(){
   const leg=(c,k,v)=>`<div class="row"><span class="k"><span class="sw" style="background:${c}"></span>${k}</span><b>${v}</b></div>`;
   $("pieWrap").innerHTML = pieChart(mastered,learning,fresh) +
     `<div class="legend">`+
-      leg(PIE_COL.good,"Mastered",mastered)+
-      leg(PIE_COL.learn,"Learning",learning)+
-      leg(PIE_COL.fresh,"Not seen",fresh)+
-      `<div class="row"><span class="k">Reviews</span><b>${reviews}</b></div>`+
+      leg(PIE_COL.good,t("mastered"),mastered)+
+      leg(PIE_COL.learn,t("learning"),learning)+
+      leg(PIE_COL.fresh,t("notSeen"),fresh)+
+      `<div class="row"><span class="k">${t("reviews")}</span><b>${reviews}</b></div>`+
     `</div>`;
   $("quizLine").innerHTML = mode==="quiz"
-    ? `<div class="row"><span>Quiz score (session)</span><b>${score.right}/${score.total}</b></div>` : "";
+    ? `<div class="row"><span>${t("quizScore")}</span><b>${score.right}/${score.total}</b></div>` : "";
   const weak=pool.filter(c=>srs[c]&&srs[c].seen)
     .sort((a,b)=> (srs[a].box-srs[b].box) || (srs[b].missed-srs[a].missed))
     .slice(0,12);
   $("needsList").innerHTML = weak.length
     ? weak.map(c=>`<div class="row"><span>${label(c)}</span>${boxDots(srs[c].box)}</div>`).join("")
-    : '<div class="empty">No reviews yet — flip a few cards.</div>';
+    : '<div class="empty">'+t("noReviews")+'</div>';
 }
 function togglePanel(open){
   if(open) renderStats();
@@ -518,7 +581,7 @@ $("menuBtn").onclick=()=>togglePanel(!$("panel").classList.contains("open"));
 $("closePanel").onclick=()=>togglePanel(false);
 $("backdrop").onclick=()=>togglePanel(false);
 $("resetStats").onclick=()=>{
-  if(!confirm("Reset all spaced-repetition stats?"))return;
+  if(!confirm(t("resetAsk")))return;
   srs={}; saveSRS(); buildPool(); render();
 };
 
@@ -527,8 +590,7 @@ fetch("./lines.json").then(r=>r.json()).then(data=>{
     segsById[f.id]=(segsById[f.id]||[]).concat(f.geometry.coordinates);
     rankById[f.id]=f.properties.rank;
   }
-  updateDiffLabels();
-  loadSRS(); buildPool(); render();
+  loadSRS(); buildPool(); applyLang();
 }).catch(e=>{
   $("sky").outerHTML='<div style="padding:30px;color:var(--bad);text-align:center">'+
    'Could not load lines.json.<br>Run a local server (python3 serve.py).</div>';
