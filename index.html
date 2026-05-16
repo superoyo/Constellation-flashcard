@@ -66,6 +66,9 @@
   .choices button:disabled{cursor:default;opacity:.85}
 
   .nav{display:flex;gap:10px}
+  .kbd-hint{margin-top:12px;color:var(--dim);font-size:12px;text-align:center;line-height:1.7}
+  .kbd-hint kbd{background:var(--card);border:1px solid #28305c;border-radius:5px;
+    padding:1px 6px;font-size:11px;font-family:inherit;color:var(--ink)}
   .msg{min-height:20px;font-size:14px;font-weight:600}
   .msg.good{color:var(--good)} .msg.bad{color:var(--bad)}
   @media (max-width:480px){.back .name{font-size:26px}
@@ -137,7 +140,7 @@
           <svg id="sky" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet"></svg>
           <img id="photo" alt="Messier object" crossorigin="anonymous"
                referrerpolicy="no-referrer" style="display:none">
-          <div class="hint" id="frontHint">What constellation is this? — tap to reveal</div>
+          <div class="hint" id="frontHint"></div>
         </div>
         <div class="face back">
           <div class="name" id="bName">—</div>
@@ -154,6 +157,7 @@
       <button id="prev" title="Backspace">← Prev</button>
       <button id="next" title="Spacebar">Next →</button>
     </div>
+    <div class="kbd-hint" id="kbdHint"></div>
   </div>
 
 <script>
@@ -287,7 +291,7 @@ function showCard(cid){
   const sky=$("sky"), img=$("photo");
   if(isM(cid)){
     sky.style.display="none"; img.style.display=""; img.removeAttribute("src");
-    const hint = mode==="quiz" ? "Which Messier object?" : "What is this? — tap to reveal";
+    const hint = mode==="quiz" ? "Which Messier object?" : "";
     $("frontHint").textContent="Loading image…";
     const tok=++imgToken;
     messierThumb(cid).then(src=>{
@@ -302,8 +306,7 @@ function showCard(cid){
     img.style.display="none"; img.removeAttribute("src");
     sky.style.display=""; ++imgToken;          // cancel any pending image load
     draw(cid);
-    $("frontHint").textContent = mode==="quiz"
-      ? "Pick the right name" : "What constellation is this? — tap to reveal";
+    $("frontHint").textContent = mode==="quiz" ? "Pick the right name" : "";
   }
 }
 function render(){
@@ -364,17 +367,44 @@ function nextCard(){
 }
 function prevCard(){ gradeCurrent(); if(hpos>0) hpos--; render(); }
 
-// Space = next, Backspace = prev (ignored while the stats panel is open).
+function flipCard(){ if(mode!=="flash")return;
+  $("card").classList.toggle("flipped");
+  if($("card").classList.contains("flipped")) revealed=true; }
+
+// Space = next, Backspace = prev, 1 = reveal (ignored while panel is open).
 document.addEventListener("keydown",e=>{
   if(e.repeat) return;
   if($("panel").classList.contains("open")) return;
   if(e.code==="Space"){ e.preventDefault(); nextCard(); }
   else if(e.code==="Backspace"){ e.preventDefault(); prevCard(); }
+  else if(e.code==="Digit1"||e.code==="Numpad1"){ e.preventDefault(); flipCard(); }
 });
 
-$("card").onclick=()=>{ if(mode!=="flash")return;
-  $("card").classList.toggle("flipped");
-  if($("card").classList.contains("flipped")) revealed=true; };
+$("card").onclick=flipCard;
+
+// Touch: swipe left = next, swipe right = prev. A small move counts as a tap.
+(function(){
+  let x0=0,y0=0,sw=false;
+  const card=$("card");
+  card.addEventListener("touchstart",e=>{
+    const t=e.changedTouches[0]; x0=t.clientX; y0=t.clientY; sw=false;
+  },{passive:true});
+  card.addEventListener("touchend",e=>{
+    const t=e.changedTouches[0], dx=t.clientX-x0, dy=t.clientY-y0;
+    if(Math.abs(dx)>45 && Math.abs(dx)>Math.abs(dy)*1.4){
+      sw=true; e.preventDefault();
+      dx<0 ? nextCard() : prevCard();
+    }
+  });
+  // Suppress the click-to-flip that follows a swipe gesture.
+  card.addEventListener("click",e=>{ if(sw){ e.stopImmediatePropagation(); sw=false; } },true);
+})();
+
+const touch = ("ontouchstart" in window) || navigator.maxTouchPoints>0;
+$("kbdHint").innerHTML = touch
+  ? "Swipe <kbd>←</kbd> / <kbd>→</kbd> for next &amp; prev · tap or press <kbd>1</kbd> to reveal"
+  : "<kbd>Space</kbd> next · <kbd>Backspace</kbd> prev · <kbd>1</kbd> reveal";
+
 $("next").onclick=nextCard;
 $("prev").onclick=prevCard;
 $("shuffle").onclick=()=>{ gradeCurrent(); buildPool(); render(); };
