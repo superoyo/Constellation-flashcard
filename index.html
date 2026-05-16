@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Constellation Flash Cards</title>
+<style>
+  :root{
+    --bg:#070914; --bg2:#0d1126; --ink:#e8ecff; --dim:#8b93b8;
+    --star:#cfd6ff; --line:#5b6bd6; --accent:#7c8cff; --good:#3ddc97;
+    --bad:#ff6b81; --card:#11162e;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:radial-gradient(1200px 700px at 70% -10%,#1a2150 0%,var(--bg) 60%);
+    color:var(--ink); min-height:100vh; display:flex; flex-direction:column;
+    align-items:center; padding:24px 16px 60px;
+  }
+  h1{font-size:24px;font-weight:700;letter-spacing:.5px;margin-bottom:4px;
+    text-align:center;padding:0 64px}
+  .sub{color:var(--dim);font-size:13px;margin-bottom:20px}
+  .bar{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:18px}
+  button{
+    font:inherit;font-size:13px;font-weight:600;color:var(--ink);
+    background:var(--card);border:1px solid #28305c;border-radius:10px;
+    padding:9px 14px;cursor:pointer;transition:.15s;
+  }
+  button:hover{border-color:var(--accent);background:#161c3a}
+  button.on{background:var(--accent);border-color:var(--accent);color:#0a0d1f}
+  .score{color:var(--dim);font-size:13px;margin-bottom:14px}
+  .score b{color:var(--ink)}
+
+  .stage{width:min(520px,94vw);display:flex;flex-direction:column;align-items:center;gap:18px}
+
+  .card{
+    width:100%;aspect-ratio:4/3;perspective:1400px;cursor:pointer;
+  }
+  .inner{
+    position:relative;width:100%;height:100%;transition:transform .55s;
+    transform-style:preserve-3d;
+  }
+  .card.flipped .inner{transform:rotateY(180deg)}
+  .face{
+    position:absolute;inset:0;backface-visibility:hidden;border-radius:18px;
+    background:linear-gradient(160deg,var(--card),#0b0f22);
+    border:1px solid #283063;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 18px 50px -20px #000;overflow:hidden;
+  }
+  .face .hint{position:absolute;bottom:12px;left:0;right:0;text-align:center;
+    color:var(--dim);font-size:12px}
+  .back{transform:rotateY(180deg);flex-direction:column;gap:8px;padding:20px;text-align:center}
+  .back .name{font-size:34px;font-weight:800}
+  .back .abbr{color:var(--dim);font-size:14px}
+  .back .credit{color:#5a6388;font-size:11px;margin-top:6px}
+  #photo{width:100%;height:100%;object-fit:contain;background:#05070f}
+  svg{width:100%;height:100%;display:block}
+  .cline{stroke:var(--line);stroke-width:1.4;fill:none;stroke-linecap:round}
+  .cstar{fill:var(--star)}
+
+  .choices{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%}
+  .choices button{padding:14px;font-size:14px}
+  .choices button.correct{background:var(--good);border-color:var(--good);color:#062416}
+  .choices button.wrong{background:var(--bad);border-color:var(--bad);color:#2a0710}
+  .choices button:disabled{cursor:default;opacity:.85}
+
+  .nav{display:flex;gap:10px}
+  .msg{min-height:20px;font-size:14px;font-weight:600}
+  .msg.good{color:var(--good)} .msg.bad{color:var(--bad)}
+  @media (max-width:480px){.back .name{font-size:26px}
+    h1{font-size:19px;padding:0 52px}}
+
+  /* hamburger + stats drawer */
+  .menu-btn{position:fixed;top:16px;right:16px;z-index:30;width:42px;height:42px;
+    padding:0;display:flex;align-items:center;justify-content:center;font-size:18px;line-height:1}
+  .backdrop{position:fixed;inset:0;background:rgba(3,5,14,.6);opacity:0;
+    pointer-events:none;transition:.25s;z-index:25}
+  .backdrop.open{opacity:1;pointer-events:auto}
+  .panel{position:fixed;top:0;right:0;height:100%;width:min(340px,90vw);z-index:30;
+    background:linear-gradient(180deg,#10152c,#0a0d1f);border-left:1px solid #283063;
+    transform:translateX(102%);transition:transform .28s;padding:22px 18px;
+    overflow-y:auto;box-shadow:-20px 0 50px -20px #000}
+  .panel.open{transform:translateX(0)}
+  .panel h2{font-size:16px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
+  .panel .x{background:none;border:none;font-size:18px;color:var(--dim);padding:4px;cursor:pointer}
+  .pie{width:158px;display:block;margin:2px auto 12px}
+  .pieN{fill:var(--ink);font-size:26px;font-weight:800}
+  .pieL{fill:var(--dim);font-size:11px}
+  .legend{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;font-size:13px}
+  .legend .row{border:none;padding:3px 0}
+  .legend .k{display:flex;align-items:center;gap:8px}
+  .legend .sw{width:11px;height:11px;border-radius:3px;display:inline-block}
+  .sec{font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px;margin:14px 0 8px}
+  .row{display:flex;align-items:center;justify-content:space-between;
+    padding:7px 0;border-bottom:1px solid #1c2342;font-size:13px}
+  .dots{display:flex;gap:3px}
+  .dots i{width:7px;height:7px;border-radius:50%;background:#2a3360;display:block}
+  .dots i.f{background:var(--accent)}
+  .panel .reset{width:100%;margin-top:18px;border-color:#5a2740;color:#ff9bb0}
+  .panel .reset:hover{background:#2a1020;border-color:var(--bad)}
+  .empty{color:var(--dim);font-size:13px;padding:8px 0}
+</style>
+</head>
+<body>
+  <h1>✦ Sky Flash Cards</h1>
+  <div class="sub" id="sub">Match the star pattern to its name</div>
+
+  <div class="bar">
+    <button id="cStars" class="on">✦ Constellations</button>
+    <button id="cMessier">🌌 Messier</button>
+  </div>
+  <div class="bar">
+    <button id="mFlash" class="on">Flash Cards</button>
+    <button id="mQuiz">Quiz</button>
+    <span style="width:14px"></span>
+    <button id="dEasy" class="on">Famous</button>
+    <button id="dAll">All 88</button>
+    <button id="shuffle">⟳ Shuffle</button>
+  </div>
+
+  <button id="menuBtn" class="menu-btn" aria-label="Stats">☰</button>
+  <div class="backdrop" id="backdrop"></div>
+  <aside class="panel" id="panel">
+    <h2>Progress <button class="x" id="closePanel" aria-label="Close">✕</button></h2>
+    <div id="pieWrap"></div>
+    <div id="quizLine"></div>
+    <div class="sec">Needs practice</div>
+    <div id="needsList"></div>
+    <button class="reset" id="resetStats">Reset all stats</button>
+  </aside>
+
+  <div class="stage">
+    <div class="card" id="card">
+      <div class="inner">
+        <div class="face front">
+          <svg id="sky" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet"></svg>
+          <img id="photo" alt="Messier object" crossorigin="anonymous"
+               referrerpolicy="no-referrer" style="display:none">
+          <div class="hint" id="frontHint">What constellation is this? — tap to reveal</div>
+        </div>
+        <div class="face back">
+          <div class="name" id="bName">—</div>
+          <div class="abbr" id="bAbbr"></div>
+          <div class="credit" id="bCredit"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="msg" id="msg"></div>
+    <div class="choices" id="choices" style="display:none"></div>
+
+    <div class="nav">
+      <button id="prev" title="Backspace">← Prev</button>
+      <button id="next" title="Spacebar">Next →</button>
+    </div>
+  </div>
+
+<script>
+const NAMES={And:"Andromeda",Ant:"Antlia",Aps:"Apus",Aqr:"Aquarius",Aql:"Aquila",Ara:"Ara",Ari:"Aries",Aur:"Auriga",Boo:"Bootes",Cae:"Caelum",Cam:"Camelopardalis",Cnc:"Cancer",CVn:"Canes Venatici",CMa:"Canis Major",CMi:"Canis Minor",Cap:"Capricornus",Car:"Carina",Cas:"Cassiopeia",Cen:"Centaurus",Cep:"Cepheus",Cet:"Cetus",Cha:"Chamaeleon",Cir:"Circinus",Col:"Columba",Com:"Coma Berenices",CrA:"Corona Australis",CrB:"Corona Borealis",Crv:"Corvus",Crt:"Crater",Cru:"Crux",Cyg:"Cygnus",Del:"Delphinus",Dor:"Dorado",Dra:"Draco",Equ:"Equuleus",Eri:"Eridanus",For:"Fornax",Gem:"Gemini",Gru:"Grus",Her:"Hercules",Hor:"Horologium",Hya:"Hydra",Hyi:"Hydrus",Ind:"Indus",Lac:"Lacerta",Leo:"Leo",LMi:"Leo Minor",Lep:"Lepus",Lib:"Libra",Lup:"Lupus",Lyn:"Lynx",Lyr:"Lyra",Men:"Mensa",Mic:"Microscopium",Mon:"Monoceros",Mus:"Musca",Nor:"Norma",Oct:"Octans",Oph:"Ophiuchus",Ori:"Orion",Pav:"Pavo",Peg:"Pegasus",Per:"Perseus",Phe:"Phoenix",Pic:"Pictor",Psc:"Pisces",PsA:"Piscis Austrinus",Pup:"Puppis",Pyx:"Pyxis",Ret:"Reticulum",Sge:"Sagitta",Sgr:"Sagittarius",Sco:"Scorpius",Scl:"Sculptor",Sct:"Scutum",Ser:"Serpens",Sex:"Sextans",Tau:"Taurus",Tel:"Telescopium",Tri:"Triangulum",TrA:"Triangulum Australe",Tuc:"Tucana",UMa:"Ursa Major",UMi:"Ursa Minor",Vel:"Vela",Vir:"Virgo",Vol:"Volans",Vul:"Vulpecula"};
+
+// Common names for the Messier objects that have one; the rest fall back
+// to "Messier N". Catalog runs M1–M110.
+const M_NAMES={M1:"Crab Nebula",M6:"Butterfly Cluster",M7:"Ptolemy Cluster",
+ M8:"Lagoon Nebula",M11:"Wild Duck Cluster",M13:"Hercules Globular Cluster",
+ M16:"Eagle Nebula",M17:"Omega Nebula",M20:"Trifid Nebula",
+ M22:"Sagittarius Cluster",M24:"Sagittarius Star Cloud",M27:"Dumbbell Nebula",
+ M31:"Andromeda Galaxy",M33:"Triangulum Galaxy",M40:"Winnecke 4",
+ M42:"Orion Nebula",M43:"De Mairan's Nebula",M44:"Beehive Cluster",
+ M45:"Pleiades",M51:"Whirlpool Galaxy",M57:"Ring Nebula",
+ M63:"Sunflower Galaxy",M64:"Black Eye Galaxy",M74:"Phantom Galaxy",
+ M76:"Little Dumbbell Nebula",M77:"Cetus A",M81:"Bode's Galaxy",
+ M82:"Cigar Galaxy",M83:"Southern Pinwheel Galaxy",M87:"Virgo A",
+ M97:"Owl Nebula",M101:"Pinwheel Galaxy",M104:"Sombrero Galaxy"};
+const MESSIER=[]; for(let i=1;i<=110;i++) MESSIER.push("M"+i);
+// The visually iconic Messier objects -> "Famous" subset.
+const M_FAMOUS=["M1","M8","M13","M16","M17","M20","M27","M31","M33","M42",
+ "M44","M45","M51","M57","M63","M64","M76","M81","M82","M83","M87","M97",
+ "M101","M104"];
+const isM=cid=>/\d/.test(cid);
+function label(cid){ return isM(cid)
+  ? (M_NAMES[cid] || "Messier "+cid.slice(1))
+  : NAMES[cid]; }
+
+const $=id=>document.getElementById(id);
+let segsById={}, rankById={}, mode="flash", diff="easy", cat="stars";
+let score={right:0,total:0}, answered=false;
+
+/* ---- Messier images from Wikipedia / Wikimedia Commons ---- */
+const imgCache={};
+let imgToken=0;
+function messierThumb(cid){
+  if(cid in imgCache) return Promise.resolve(imgCache[cid]);
+  const page="Messier_"+cid.slice(1);
+  return fetch("https://en.wikipedia.org/api/rest_v1/page/summary/"+
+      encodeURIComponent(page))
+    .then(r=>r.json()).then(j=>{
+      // Use the size Wikipedia generated — arbitrary widths are rejected (400).
+      const src=(j.thumbnail&&j.thumbnail.source)||
+                (j.originalimage&&j.originalimage.source)||null;
+      imgCache[cid]=src; return src;
+    }).catch(()=>{ imgCache[cid]=null; return null; });
+}
+
+/* ---- spaced repetition ---- */
+const SRKEY="constSRS_v1";
+const BOX_W=[18,9,4,2,1];          // box 1 = weak (shown often) … box 5 = mastered
+let srs={};
+function loadSRS(){ try{srs=JSON.parse(localStorage.getItem(SRKEY))||{};}catch(e){srs={};} }
+function saveSRS(){ try{localStorage.setItem(SRKEY,JSON.stringify(srs));}catch(e){} }
+function rec(cid){ return srs[cid]||(srs[cid]={box:1,seen:0,missed:0}); }
+function weight(cid){ return BOX_W[(rec(cid).box||1)-1]; }
+function grade(cid,knew){
+  const r=rec(cid); r.seen++;
+  if(knew) r.box=Math.min(5,(r.box||1)+1);
+  else { r.box=1; r.missed++; }
+  saveSRS(); renderStats();
+}
+let pool=[], history=[], hpos=-1, revealed=false, visitGraded=false;
+const curCid=()=>history[hpos];
+function pickWeighted(exclude){
+  const arr=pool.filter(c=>c!==exclude); const cand=arr.length?arr:pool;
+  let tot=0; for(const c of cand) tot+=weight(c);
+  let r=Math.random()*tot;
+  for(const c of cand){ r-=weight(c); if(r<=0) return c; }
+  return cand[cand.length-1];
+}
+// Grade the card you are leaving. Flash: not revealed = "knew it".
+// Quiz grades itself in answer(); skipping a quiz card doesn't count.
+function gradeCurrent(){
+  if(visitGraded||hpos<0) return;
+  if(mode==="flash"){ grade(curCid(), !revealed); visitGraded=true; }
+}
+
+function unwrap(segs){
+  const ref=segs[0][0][0];
+  return segs.map(seg=>seg.map(([ra,dec])=>{
+    while(ra-ref>180)ra-=360; while(ra-ref<-180)ra+=360; return [ra,dec];
+  }));
+}
+// Project RA/Dec into the SVG box, matching the PDF generator (sky view).
+function project(segs,W,H){
+  segs=unwrap(segs);
+  const pts=segs.flat();
+  const meanDec=pts.reduce((s,p)=>s+p[1],0)/pts.length;
+  const k=Math.cos(meanDec*Math.PI/180);
+  const proj=segs.map(seg=>seg.map(([ra,dec])=>[-ra*k,dec]));
+  const xs=proj.flat().map(p=>p[0]), ys=proj.flat().map(p=>p[1]);
+  const minx=Math.min(...xs),maxx=Math.max(...xs);
+  const miny=Math.min(...ys),maxy=Math.max(...ys);
+  const spanx=(maxx-minx)||1, spany=(maxy-miny)||1, pad=.14;
+  const scale=Math.min(W*(1-2*pad)/spanx, H*(1-2*pad)/spany);
+  const mx=(minx+maxx)/2,my=(miny+maxy)/2,cx=W/2,cy=H/2;
+  // SVG y grows downward; dec grows upward -> negate.
+  const tx=(px,py)=>[cx+(px-mx)*scale, cy-(py-my)*scale];
+  return proj.map(seg=>seg.map(([px,py])=>tx(px,py)));
+}
+function draw(cid){
+  const svg=$("sky"); svg.innerHTML="";
+  const proj=project(segsById[cid],400,300);
+  const seen=new Set();
+  for(const seg of proj){
+    const d="M"+seg.map(p=>p[0].toFixed(1)+" "+p[1].toFixed(1)).join(" L ");
+    const path=document.createElementNS("http://www.w3.org/2000/svg","path");
+    path.setAttribute("d",d); path.setAttribute("class","cline");
+    svg.appendChild(path);
+  }
+  for(const seg of proj)for(const [x,y] of seg){
+    const key=x.toFixed(1)+","+y.toFixed(1); if(seen.has(key))continue; seen.add(key);
+    const c=document.createElementNS("http://www.w3.org/2000/svg","circle");
+    c.setAttribute("cx",x); c.setAttribute("cy",y); c.setAttribute("r",3.4);
+    c.setAttribute("class","cstar"); svg.appendChild(c);
+  }
+}
+
+function catAll(){ return cat==="messier" ? MESSIER.slice() : Object.keys(segsById); }
+function buildPool(){
+  let ids=catAll();
+  if(diff==="easy") ids = cat==="messier"
+    ? ids.filter(id=>M_FAMOUS.includes(id))
+    : ids.filter(id=>["1","2"].includes(rankById[id]));
+  pool=ids;
+  history=[pickWeighted(null)]; hpos=0;
+  score={right:0,total:0};
+}
+function showCard(cid){
+  const sky=$("sky"), img=$("photo");
+  if(isM(cid)){
+    sky.style.display="none"; img.style.display=""; img.removeAttribute("src");
+    const hint = mode==="quiz" ? "Which Messier object?" : "What is this? — tap to reveal";
+    $("frontHint").textContent="Loading image…";
+    const tok=++imgToken;
+    messierThumb(cid).then(src=>{
+      if(tok!==imgToken) return;
+      if(src){ img.src=src; img.style.display=""; sky.style.display="none"; }
+      else { img.style.display="none"; sky.style.display="";
+             sky.innerHTML='<text x="200" y="155" text-anchor="middle" '+
+               'fill="#8b93b8" font-size="15">image unavailable</text>'; }
+      $("frontHint").textContent=hint;
+    });
+  } else {
+    img.style.display="none"; img.removeAttribute("src");
+    sky.style.display=""; ++imgToken;          // cancel any pending image load
+    draw(cid);
+    $("frontHint").textContent = mode==="quiz"
+      ? "Pick the right name" : "What constellation is this? — tap to reveal";
+  }
+}
+function render(){
+  const cid=curCid(); answered=false; revealed=false; visitGraded=false;
+  // Snap to the front instantly so the old card's answer never flashes
+  // during the flip-back animation when navigating.
+  const inner=$("card").querySelector(".inner");
+  inner.style.transition="none";
+  $("card").classList.remove("flipped");
+  void inner.offsetWidth;            // force reflow
+  inner.style.transition="";
+  showCard(cid);
+  $("bName").textContent=label(cid);
+  $("bAbbr").textContent="("+cid+")";
+  $("bCredit").textContent = isM(cid) ? "Image: Wikipedia / Wikimedia Commons" : "";
+  $("msg").textContent=""; $("msg").className="msg";
+  if(mode==="quiz"){
+    $("choices").style.display="grid";
+    const opts=new Set([cid]);
+    const distract=pool.length>4?pool:catAll();
+    while(opts.size<4) opts.add(distract[Math.floor(Math.random()*distract.length)]);
+    const arr=[...opts].sort(()=>Math.random()-0.5);
+    $("choices").innerHTML="";
+    arr.forEach(o=>{
+      const b=document.createElement("button");
+      b.textContent=label(o);
+      b.onclick=()=>answer(b,o,cid);
+      $("choices").appendChild(b);
+    });
+  }else{
+    $("choices").style.display="none";
+  }
+  renderStats();
+}
+function answer(btn,chosen,cid){
+  if(answered)return; answered=true;
+  score.total++;
+  [...$("choices").children].forEach(b=>b.disabled=true);
+  if(chosen===cid){
+    score.right++; btn.classList.add("correct");
+    $("msg").textContent="Correct!"; $("msg").className="msg good";
+  }else{
+    btn.classList.add("wrong");
+    [...$("choices").children].forEach(b=>{
+      if(b.textContent===label(cid))b.classList.add("correct");
+    });
+    $("msg").textContent="It was "+label(cid); $("msg").className="msg bad";
+  }
+  grade(cid, chosen===cid); visitGraded=true;
+  $("card").classList.add("flipped");
+}
+function nextCard(){
+  gradeCurrent();
+  if(hpos < history.length-1) hpos++;
+  else { history.push(pickWeighted(curCid())); hpos++;
+         if(history.length>300){history.shift();hpos--;} }
+  render();
+}
+function prevCard(){ gradeCurrent(); if(hpos>0) hpos--; render(); }
+
+// Space = next, Backspace = prev (ignored while the stats panel is open).
+document.addEventListener("keydown",e=>{
+  if(e.repeat) return;
+  if($("panel").classList.contains("open")) return;
+  if(e.code==="Space"){ e.preventDefault(); nextCard(); }
+  else if(e.code==="Backspace"){ e.preventDefault(); prevCard(); }
+});
+
+$("card").onclick=()=>{ if(mode!=="flash")return;
+  $("card").classList.toggle("flipped");
+  if($("card").classList.contains("flipped")) revealed=true; };
+$("next").onclick=nextCard;
+$("prev").onclick=prevCard;
+$("shuffle").onclick=()=>{ gradeCurrent(); buildPool(); render(); };
+function setMode(m){ gradeCurrent(); mode=m;
+  $("mFlash").classList.toggle("on",m==="flash");
+  $("mQuiz").classList.toggle("on",m==="quiz"); buildPool(); render(); }
+$("mFlash").onclick=()=>setMode("flash");
+$("mQuiz").onclick=()=>setMode("quiz");
+function setDiff(d){ gradeCurrent(); diff=d;
+  $("dEasy").classList.toggle("on",d==="easy");
+  $("dAll").classList.toggle("on",d==="all"); buildPool(); render(); }
+$("dEasy").onclick=()=>setDiff("easy");
+$("dAll").onclick=()=>setDiff("all");
+
+function updateDiffLabels(){
+  if(cat==="messier"){
+    $("dEasy").textContent="Famous ("+M_FAMOUS.length+")";
+    $("dAll").textContent="All 110";
+    $("sub").textContent="Match the deep-sky photo to its name";
+  } else {
+    const famous=Object.keys(segsById).filter(id=>["1","2"].includes(rankById[id])).length;
+    $("dEasy").textContent="Famous ("+famous+")";
+    $("dAll").textContent="All 88";
+    $("sub").textContent="Match the star pattern to its name";
+  }
+}
+function setCat(c){ gradeCurrent(); cat=c;
+  $("cStars").classList.toggle("on",c==="stars");
+  $("cMessier").classList.toggle("on",c==="messier");
+  updateDiffLabels(); buildPool(); render(); }
+$("cStars").onclick=()=>setCat("stars");
+$("cMessier").onclick=()=>setCat("messier");
+
+/* ---- stats panel ---- */
+function boxDots(b){ let s='<span class="dots">';
+  for(let i=1;i<=5;i++) s+='<i class="'+(i<=b?'f':'')+'"></i>';
+  return s+'</span>'; }
+const PIE_COL={good:"#3ddc97",learn:"#7c8cff",fresh:"#2a3360"};
+function pieChart(m,l,n){
+  const tot=m+l+n||1, C=2*Math.PI*52;
+  let off=0, arcs="";
+  for(const [col,v] of [[PIE_COL.good,m],[PIE_COL.learn,l]]){
+    const len=v/tot*C;
+    arcs+=`<circle cx="70" cy="70" r="52" fill="none" stroke="${col}" stroke-width="16"
+      stroke-dasharray="${len.toFixed(2)} ${(C-len).toFixed(2)}"
+      stroke-dashoffset="${(-off).toFixed(2)}"
+      transform="rotate(-90 70 70)"/>`;
+    off+=len;
+  }
+  const pct=Math.round(m/tot*100);
+  return `<svg viewBox="0 0 140 140" class="pie">
+    <circle cx="70" cy="70" r="52" fill="none" stroke="${PIE_COL.fresh}" stroke-width="16"/>
+    ${arcs}
+    <text x="70" y="66" text-anchor="middle" class="pieN">${pct}%</text>
+    <text x="70" y="86" text-anchor="middle" class="pieL">mastered</text></svg>`;
+}
+function renderStats(){
+  let reviews=0, mastered=0, learning=0, fresh=0;
+  for(const c of pool){
+    const r=srs[c];
+    if(!r||!r.seen){ fresh++; continue; }
+    reviews+=r.seen;
+    if(r.box>=4) mastered++; else learning++;
+  }
+  const leg=(c,k,v)=>`<div class="row"><span class="k"><span class="sw" style="background:${c}"></span>${k}</span><b>${v}</b></div>`;
+  $("pieWrap").innerHTML = pieChart(mastered,learning,fresh) +
+    `<div class="legend">`+
+      leg(PIE_COL.good,"Mastered",mastered)+
+      leg(PIE_COL.learn,"Learning",learning)+
+      leg(PIE_COL.fresh,"Not seen",fresh)+
+      `<div class="row"><span class="k">Reviews</span><b>${reviews}</b></div>`+
+    `</div>`;
+  $("quizLine").innerHTML = mode==="quiz"
+    ? `<div class="row"><span>Quiz score (session)</span><b>${score.right}/${score.total}</b></div>` : "";
+  const weak=pool.filter(c=>srs[c]&&srs[c].seen)
+    .sort((a,b)=> (srs[a].box-srs[b].box) || (srs[b].missed-srs[a].missed))
+    .slice(0,12);
+  $("needsList").innerHTML = weak.length
+    ? weak.map(c=>`<div class="row"><span>${label(c)}</span>${boxDots(srs[c].box)}</div>`).join("")
+    : '<div class="empty">No reviews yet — flip a few cards.</div>';
+}
+function togglePanel(open){
+  if(open) renderStats();
+  $("panel").classList.toggle("open",open);
+  $("backdrop").classList.toggle("open",open);
+}
+$("menuBtn").onclick=()=>togglePanel(!$("panel").classList.contains("open"));
+$("closePanel").onclick=()=>togglePanel(false);
+$("backdrop").onclick=()=>togglePanel(false);
+$("resetStats").onclick=()=>{
+  if(!confirm("Reset all spaced-repetition stats?"))return;
+  srs={}; saveSRS(); buildPool(); render();
+};
+
+fetch("./lines.json").then(r=>r.json()).then(data=>{
+  for(const f of data.features){
+    segsById[f.id]=(segsById[f.id]||[]).concat(f.geometry.coordinates);
+    rankById[f.id]=f.properties.rank;
+  }
+  updateDiffLabels();
+  loadSRS(); buildPool(); render();
+}).catch(e=>{
+  $("sky").outerHTML='<div style="padding:30px;color:var(--bad);text-align:center">'+
+   'Could not load lines.json.<br>Run a local server (python3 serve.py).</div>';
+});
+</script>
+</body>
+</html>
